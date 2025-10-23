@@ -1,0 +1,14 @@
+program: scripts/07_yaml_sweep.py
+method: grid
+metric:
+  name: overall_quality
+  goal: maximize
+parameters:
+  temperature:
+    values: [0.0, 0.1, 0.2, 0.3, 0.5, 0.7, 1.0]
+  top_k:
+    values: [3, 5, 7, 10]
+  model_strategy:
+    values: ["cost_effective", "zero_cost"]
+  # cost_effective = OpenAI GPT-4o-mini (answerer) + Ollama llama3.1:8b (critic)
+  # zero_cost = Ollama llama3.1:8b (both answerer and critic)
