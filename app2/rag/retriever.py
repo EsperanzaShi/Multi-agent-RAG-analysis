@@ -36,7 +36,7 @@ class Retriever:
         self.by_doc_page: Dict[Tuple[str,int], List[Dict[str,Any]]] = {}
         for m in self.meta:
             key = (m.get("doc"), int(m.get("page_start", 0)))
-            self.by_doc_page.setdefault(key, []).append(m)
+            self.by_doc_page.setdefault(key, []).append(m) #Group chunks by document+page
         # Stats for last search (used for UI tracing)
         self.stats: Dict[str, Any] = {}
 
@@ -69,6 +69,7 @@ class Retriever:
 
         # Search a larger pool to improve recall; we will re-rank with domain-specific features
         pool = min(1000, self.index.ntotal)
+        # FAISS returns the top 1000 most similar chunks based on embedding similarity
         D, I = self.index.search(q, pool)
 
         candidates: List[Tuple[float, Dict[str, Any]]] = []
@@ -102,16 +103,18 @@ class Retriever:
 
             add_candidate(score, m)
 
-            # neighbor pages get a small bonus
+            # Main chunk ranks higher, but neighbors still provide context.
             for nb in self._neighbors(m):
                 add_candidate(score - 0.02, nb)
 
         # sort by composite score and return unique top_k
+        #For each tuple x, return the first element x[0] (the score)
         candidates.sort(key=lambda x: x[0], reverse=True)
         results: List[Dict[str, Any]] = []
         seen_pages = set()
         for _, m in candidates:
             key = (m.get("doc"), m.get("page_start"))
+            #Provides broader coverage across different pages
             if key in seen_pages:
                 continue
             results.append(m)

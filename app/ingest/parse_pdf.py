@@ -8,7 +8,7 @@ import pandas as pd
 import unicodedata
 
 
-ITEM_RE = re.compile(r"\bItem\s+(\d+[A-Z]?)\b", re.I)
+ITEM_RE = re.compile(r"\bItem\s+(\d+[A-Z]?)\b", re.I) # I: IGNORECASE
 
 # --- Text normalization helpers ---
 
