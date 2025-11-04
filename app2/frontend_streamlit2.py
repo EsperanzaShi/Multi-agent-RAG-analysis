@@ -8,6 +8,7 @@ from pathlib import Path
 import sys
 import streamlit as st
 
+
 # Ensure project root is on sys.path so absolute `app2.*` imports work when Streamlit runs from app2/
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -47,11 +48,11 @@ def _display_extraction_results(result: dict):
 def _display_single_company_results(result: dict):
     """Display single company extraction results"""
     if result["success"]:
-        actual_count = len(result["table"]) if result["table"] else 0
+        actual_count = len(result.get("table", [])) if result.get("table") else 0
         st.success(f"✅ Extracted {actual_count} risk factors")
         
         # Display the table
-        if result["table"]:
+        if result.get("table"):
             st.subheader("📋 Risk Factors Table")
             df = pd.DataFrame(result["table"])
             st.dataframe(df, use_container_width=True)
@@ -73,25 +74,25 @@ def _display_cross_company_results(result: dict):
     
     # Show Chevron risks
     st.write("**Chevron 2024 Risks**")
-    if result["chevron_table"]:
+    if result.get("chevron_table"):
         df_chevron = pd.DataFrame(result["chevron_table"])
         st.dataframe(df_chevron, use_container_width=True)
     
     # Show ExxonMobil risks
     st.write("**ExxonMobil 2024 Risks**")
-    if result["exxon_table"]:
+    if result.get("exxon_table"):
         df_exxon = pd.DataFrame(result["exxon_table"])
         st.dataframe(df_exxon, use_container_width=True)
     
     # Comparison summary
     st.subheader("📊 Comparison Summary")
-    chevron_count = len(result["chevron_table"])
-    exxon_count = len(result["exxon_table"])
+    chevron_count = len(result.get("chevron_table", []))
+    exxon_count = len(result.get("exxon_table", []))
     st.write(f"**Chevron**: {chevron_count} risk factors")
     st.write(f"**ExxonMobil**: {exxon_count} risk factors")
     
     # Combined CSV download
-    if result["chevron_table"] and result["exxon_table"]:
+    if result.get("chevron_table") and result.get("exxon_table"):
         combined_data = []
         for row in result["chevron_table"]:
             combined_data.append({**row, "Company": "Chevron"})
@@ -112,7 +113,8 @@ def _display_timeseries_results(result: dict):
     st.subheader("📈 Time-Series Analysis: ExxonMobil 2022-2024")
     
     # Show each year's risks
-    for year, table in result["tables"].items():
+    tables = result.get("tables", {})
+    for year, table in tables.items():
         st.write(f"**{year} Risks**")
         if table:
             df = pd.DataFrame(table)
@@ -120,12 +122,14 @@ def _display_timeseries_results(result: dict):
     
     # Risk evolution summary
     st.subheader("📊 Risk Evolution Summary")
-    for year, count in result["metadata"]["risk_counts"].items():
+    metadata = result.get("metadata", {})
+    risk_counts = metadata.get("risk_counts", {})
+    for year, count in risk_counts.items():
         st.write(f"**{year}**: {count} risk factors")
     
     # Time-series CSV download
     all_data = []
-    for year, table in result["tables"].items():
+    for year, table in tables.items():
         for row in table:
             all_data.append({**row, "Year": year})
     
@@ -376,182 +380,4 @@ if st.button("🚀 Run Analysis", type="primary"):
         
         # Display unified trace
         _display_unified_trace(result)
-
-# Helper functions for displaying results
-def _display_qa_results(result: dict):
-    """Display Q&A workflow results"""
-    st.subheader("🤖 Answer")
-    st.write(result["answer"])
-    st.caption(f"Iterations: {result.get('iterations', 1)} | Approved: {result['critic']['approved']}")
-    
-    if result["critic"]["feedback"]:
-        st.warning("Critic feedback:")
-        for fb in result["critic"]["feedback"]:
-            st.write(f"- Sentence {fb['idx']}: {fb['issue']} — {fb['message']}")
-    
-    st.subheader("📚 Retrieved Sources")
-    for c in result["retrieved"]:
-        st.write(f"- **{c['company']} {c['year']}** — {c['doc']} — p.{c['page_start']}")
-        with st.expander("Preview chunk"):
-            st.code(c["text"][:1200])
-
-def _display_extraction_results(result: dict):
-    """Display extraction workflow results"""
-    workflow_type = result.get("workflow_type", "single")
-    
-    if workflow_type == "cross_company":
-        _display_cross_company_results(result)
-    elif workflow_type == "timeseries":
-        _display_timeseries_results(result)
-    else:
-        _display_single_company_results(result)
-
-def _display_single_company_results(result: dict):
-    """Display single company extraction results"""
-    if result["success"]:
-        actual_count = len(result.get("table", [])) if result.get("table") else 0
-        st.success(f"✅ Extracted {actual_count} risk factors")
-        
-        # Display the table
-        if result.get("table"):
-            st.subheader("📋 Risk Factors Table")
-            df = pd.DataFrame(result["table"])
-            st.dataframe(df, use_container_width=True)
-            
-            # CSV download
-            csv = df.to_csv(index=False)
-            st.download_button(
-                label="📥 Download CSV",
-                data=csv,
-                file_name=f"risk_factors_{company}_{default_year}.csv",
-                mime="text/csv"
-            )
-    else:
-        st.error(f"❌ Extraction failed: {result.get('error', 'Unknown error')}")
-
-def _display_cross_company_results(result: dict):
-    """Display cross-company comparison results"""
-    st.subheader("🔄 Cross-Company Comparison: Chevron vs ExxonMobil 2024")
-    
-    # Show Chevron risks
-    st.write("**Chevron 2024 Risks**")
-    if result.get("chevron_table"):
-        df_chevron = pd.DataFrame(result["chevron_table"])
-        st.dataframe(df_chevron, use_container_width=True)
-    
-    # Show ExxonMobil risks
-    st.write("**ExxonMobil 2024 Risks**")
-    if result.get("exxon_table"):
-        df_exxon = pd.DataFrame(result["exxon_table"])
-        st.dataframe(df_exxon, use_container_width=True)
-    
-    # Comparison summary
-    st.subheader("📊 Comparison Summary")
-    chevron_count = len(result.get("chevron_table", []))
-    exxon_count = len(result.get("exxon_table", []))
-    st.write(f"**Chevron**: {chevron_count} risk factors")
-    st.write(f"**ExxonMobil**: {exxon_count} risk factors")
-    
-    # Combined CSV download
-    if result.get("chevron_table") and result.get("exxon_table"):
-        combined_data = []
-        for row in result["chevron_table"]:
-            combined_data.append({**row, "Company": "Chevron"})
-        for row in result["exxon_table"]:
-            combined_data.append({**row, "Company": "ExxonMobil"})
-        
-        df_combined = pd.DataFrame(combined_data)
-        csv = df_combined.to_csv(index=False)
-        st.download_button(
-            label="📥 Download Combined CSV",
-            data=csv,
-            file_name="chevron_vs_exxon_risks_2024.csv",
-            mime="text/csv"
-        )
-
-def _display_timeseries_results(result: dict):
-    """Display time-series analysis results"""
-    st.subheader("📈 Time-Series Analysis: ExxonMobil 2022-2024")
-    
-    # Show each year's risks
-    tables = result.get("tables", {})
-    for year, table in tables.items():
-        st.write(f"**{year} Risks**")
-        if table:
-            df = pd.DataFrame(table)
-            st.dataframe(df, use_container_width=True)
-    
-    # Risk evolution summary
-    st.subheader("📊 Risk Evolution Summary")
-    metadata = result.get("metadata", {})
-    risk_counts = metadata.get("risk_counts", {})
-    for year, count in risk_counts.items():
-        st.write(f"**{year}**: {count} risk factors")
-    
-    # Time-series CSV download
-    all_data = []
-    for year, table in tables.items():
-        for row in table:
-            all_data.append({**row, "Year": year})
-    
-    if all_data:
-        df_timeseries = pd.DataFrame(all_data)
-        csv = df_timeseries.to_csv(index=False)
-        st.download_button(
-            label="📥 Download Time-Series CSV",
-            data=csv,
-            file_name="exxon_risks_2022_2024.csv",
-            mime="text/csv"
-        )
-
-def _display_unified_trace(result: dict):
-    """Display unified trace information"""
-    st.subheader("🔍 Unified Workflow Trace")
-    
-    trace = result.get("trace", {})
-    workflow_type = result.get("workflow_type", "unknown")
-    
-    # Show current hyperparameters
-    st.info(f"🎛️ **Current Settings**: Temperature={temperature}, Top-K={top_k}")
-    
-    # Planner information
-    if "planner" in trace:
-        planner_info = trace["planner"]
-        st.write("**🧠 Planner Agent**")
-        st.write(f"• **Decision**: {planner_info.get('path', 'unknown').title()} workflow")
-        st.write(f"• **Confidence**: {planner_info.get('confidence', 0):.1%}")
-        st.write(f"• **Reasoning**: {planner_info.get('reasoning', 'N/A')}")
-        
-        if "_trace" in planner_info:
-            planner_trace = planner_info["_trace"]
-            st.write(f"• **Provider**: {planner_trace.get('provider', 'unknown')} ({planner_trace.get('model', 'unknown')})")
-    
-    # Workflow information
-    if "workflow" in trace:
-        workflow_trace = trace["workflow"]
-        st.write("**⚙️ Workflow Execution**")
-        
-        if workflow_type == "qa":
-            # Q&A workflow trace
-            if "providers" in workflow_trace:
-                for agent, info in workflow_trace["providers"].items():
-                    st.write(f"• **{agent.title()}**: {info.get('provider', 'unknown')} ({info.get('model', 'unknown')})")
-            
-            if "retriever" in workflow_trace:
-                ret_stats = workflow_trace["retriever"]
-                st.write(f"• **Retriever**: {ret_stats.get('results', 0)} chunks, {ret_stats.get('time_s', 0):.2f}s")
-        
-        elif workflow_type == "extraction":
-            # Extraction workflow trace
-            if "extractor" in workflow_trace:
-                ext_trace = workflow_trace["extractor"]
-                st.write(f"• **Extractor**: {ext_trace.get('provider', 'unknown')} ({ext_trace.get('model', 'unknown')})")
-                st.write(f"• **Chunks Processed**: {ext_trace.get('chunks_processed', 0)}")
-    
-    # Workflow type indicator
-    st.write(f"**🎯 Workflow Type**: {workflow_type.title()}")
-    
-    # Show detailed trace if available
-    if st.expander("🔍 Detailed Trace (JSON)"):
-        st.json(trace)
 
